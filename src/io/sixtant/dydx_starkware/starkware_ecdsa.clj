@@ -74,8 +74,8 @@
 ;; of the signature, as well as for the message hash to sign.
 (def ^:const max-value
   (.subtract
-    (.pow BigInteger/TWO const/n-element-bits-ecsda)
-    BigInteger/ONE))
+    (.pow const/big-integer-two const/n-element-bits-ecsda)
+    const/big-integer-one))
 
 
 ;; These constraints are custom to their curve, I believe. I copied these
@@ -113,7 +113,7 @@
       (if (invalid-signature? r s msg-hash private-key)
         (recur (inc (or extra-entropy 0)))
         (let [s (modular-multiplicative-inverse
-                  BigInteger/ONE
+                  const/big-integer-one
                   s
                   const/ec-order)]
           [r s])))))

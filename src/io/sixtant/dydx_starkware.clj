@@ -7,9 +7,12 @@
             [clojure.string :as string]
             [clojure.data.json :as json]
 
+            [clojure.instant :as instant]
+
             [pandect.algo.sha256 :as hmac]
             [taoensso.encore :as enc])
-  (:import (java.util Base64)))
+  (:import [java.util Base64]
+           [io.sixtant IStarkSigner]))
 
 
 (set! *warn-on-reflection* true)
@@ -196,6 +199,32 @@
                     "DYDX-API-KEY"    key
                     "DYDX-TIMESTAMP"  (t/pr-inst-iso now)
                     "DYDX-PASSPHRASE" passphrase}}))
+
+
+
+(defrecord StarkSigner [stark-key]
+  IStarkSigner
+  (sign [this is-testnet position-id client-id symbol side size price limit-fee expiration order-type post-only time-in-force]
+    (def order
+      {:positionId  position-id
+       :clientId    client-id
+       :market      symbol
+       :side        side
+       :size        size
+       :price       price
+       :limitFee    limit-fee
+       :expiration  (instant/read-instant-date expiration)
+    
+       :type        order-type
+       :postOnly    post-only
+       :timeInForce time-in-force})
+    (let [signature (-> order
+                        (stark/order (if is-testnet asset-meta-data-testnet asset-meta-data))
+                        (stark/hash-order)
+                        (ecdsa/sign stark-key))]
+      (-> signature))))
+
+
 
 
 (comment

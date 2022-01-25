@@ -116,3 +116,11 @@
 ;; Max bits for Pedersen hashing & ECDSA, derived from field prime
 (def ^:const n-element-bits-ecsda (dec (.bitLength ec-prime)))
 (def ^:const n-element-bits-hash (.bitLength ec-prime))
+
+(def ^:const big-integer-one
+  (biginteger
+    1))
+
+(def ^:const big-integer-two
+  (biginteger
+    2))

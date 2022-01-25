@@ -4,12 +4,13 @@
 
            org.bouncycastle/bcprov-jdk15on {:mvn/version "1.68"} ; EC point math
            pandect/pandect                 {:mvn/version "0.6.1"} ; hashing
-           io.sixtant/rfc6979              {:mvn/version "0.1.0"} ; deterministic EC signatures
 
            com.taoensso/encore             {:mvn/version "3.19.0"} ; supplements the std lib
            com.taoensso/tufte              {:mvn/version "2.2.0"} ; benchmarking
            com.taoensso/truss              {:mvn/version "1.6.0"}} ; assertions
- :aliases {:dev  {:extra-paths ["test" "script"]}
+ :aliases {:build {:deps {io.github.clojure/tools.build {:git/tag "v0.7.5" :git/sha "34727f7"}}
+                   :ns-default build}
+           :dev  {:extra-paths ["test" "script"]}
            :frontend {:extra-paths ["script"]
                       :extra-deps {io.sixtant/secrets
                                    {:git/url "http://github.com/sixtantio/secrets"

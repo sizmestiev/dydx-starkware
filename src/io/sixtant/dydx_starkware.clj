@@ -12,7 +12,9 @@
             [pandect.algo.sha256 :as hmac]
             [taoensso.encore :as enc])
   (:import [java.util Base64]
-           [io.sixtant IStarkSigner]))
+           [io.sixtant IStarkSigner]
+           [io.sixtant IStarkSignatureArg]
+           [io.sixtant IAssetMetaData]))
 
 
 (set! *warn-on-reflection* true)
@@ -202,24 +204,54 @@
 
 
 
-(defrecord StarkSigner [stark-key]
+(defprotocol ConvertibleToClojure
+  (->clj [o]))
+
+(extend-protocol ConvertibleToClojure
+  java.util.Map
+    (->clj [o]
+      (let [entries (.entrySet o)]
+        (reduce (fn [m [^String k v]]
+          (assoc m (->clj k) (->clj v)))
+          {} entries)))
+
+  java.util.List
+    (->clj [o] (vec (map ->clj o)))
+
+  java.lang.Object
+    (->clj [o] o)
+
+  nil
+    (->clj [_] nil))
+
+(defn as-clj-map
+  [m]
+  (->clj m))
+
+
+(defrecord StarkSigner [^String stark-key ^IAssetMetaData meta-data-arg]
   IStarkSigner
-  (sign [this is-testnet position-id client-id symbol side size price limit-fee expiration order-type post-only time-in-force]
+  (^String sign [this ^IStarkSignatureArg arg]
+    (def meta-data
+      {:collateral-asset (.collateralAsset ^IAssetMetaData meta-data-arg)
+       :>synthetic-asset (as-clj-map (.syntheticAsset ^IAssetMetaData meta-data-arg))
+       :>asset-id        (as-clj-map (.assetId ^IAssetMetaData meta-data-arg))
+       :>lots            (as-clj-map (.lots ^IAssetMetaData meta-data-arg))})
     (def order
-      {:positionId  position-id
-       :clientId    client-id
-       :market      symbol
-       :side        side
-       :size        size
-       :price       price
-       :limitFee    limit-fee
-       :expiration  (instant/read-instant-date expiration)
-    
-       :type        order-type
-       :postOnly    post-only
-       :timeInForce time-in-force})
+      {:positionId  (.positionId ^IStarkSignatureArg arg)
+       :clientId    (.clientId ^IStarkSignatureArg arg)
+       :market      (.symbol ^IStarkSignatureArg arg)
+       :side        (.side ^IStarkSignatureArg arg)
+       :size        (.size ^IStarkSignatureArg arg)
+       :price       (.price ^IStarkSignatureArg arg)
+       :limitFee    (.limitFee ^IStarkSignatureArg arg)
+       :expiration  (instant/read-instant-date (.expiration ^IStarkSignatureArg arg))
+
+       :type        (.orderType ^IStarkSignatureArg arg)
+       :postOnly    (.postOnly ^IStarkSignatureArg arg)
+       :timeInForce (.timeInForce ^IStarkSignatureArg arg)})
     (let [signature (-> order
-                        (stark/order (if is-testnet asset-meta-data-testnet asset-meta-data))
+                        (stark/order meta-data)
                         (stark/hash-order)
                         (ecdsa/sign stark-key))]
       (-> signature))))

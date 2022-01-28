@@ -229,34 +229,50 @@
   (->clj m))
 
 
-(defrecord StarkSigner [^String stark-key ^IAssetMetaData meta-data-arg]
+(defn invalid-meta-data [meta-data]
+  (-> (or (nil? (:collateral-asset meta-data))
+          (nil? (:>synthetic-asset meta-data))
+          (nil? (:>asset-id meta-data))
+          (nil? (:>lots meta-data)))))
+
+
+(defn convert-meta-data [^IAssetMetaData java-meta-data]
+  (-> {:collateral-asset (.collateralAsset ^IAssetMetaData java-meta-data)
+       :>synthetic-asset (as-clj-map (.syntheticAsset ^IAssetMetaData java-meta-data))
+       :>asset-id        (as-clj-map (.assetId ^IAssetMetaData java-meta-data))
+       :>lots            (as-clj-map (.lots ^IAssetMetaData java-meta-data))}))
+
+(def meta-data-map {})
+
+(defrecord StarkSigner [^String id ^String stark-key]
   IStarkSigner
+
+  (^void init [this ^IAssetMetaData assetMetaData]
+    (def meta-data-map (assoc-in meta-data-map [:>values ^String id] (convert-meta-data assetMetaData))))
+
   (^String sign [this ^IStarkSignatureArg arg]
-    (def meta-data
-      {:collateral-asset (.collateralAsset ^IAssetMetaData meta-data-arg)
-       :>synthetic-asset (as-clj-map (.syntheticAsset ^IAssetMetaData meta-data-arg))
-       :>asset-id        (as-clj-map (.assetId ^IAssetMetaData meta-data-arg))
-       :>lots            (as-clj-map (.lots ^IAssetMetaData meta-data-arg))})
-    (def order
-      {:positionId  (.positionId ^IStarkSignatureArg arg)
-       :clientId    (.clientId ^IStarkSignatureArg arg)
-       :market      (.symbol ^IStarkSignatureArg arg)
-       :side        (.side ^IStarkSignatureArg arg)
-       :size        (.size ^IStarkSignatureArg arg)
-       :price       (.price ^IStarkSignatureArg arg)
-       :limitFee    (.limitFee ^IStarkSignatureArg arg)
-       :expiration  (instant/read-instant-date (.expiration ^IStarkSignatureArg arg))
-
-       :type        (.orderType ^IStarkSignatureArg arg)
-       :postOnly    (.postOnly ^IStarkSignatureArg arg)
-       :timeInForce (.timeInForce ^IStarkSignatureArg arg)})
-    (let [signature (-> order
-                        (stark/order meta-data)
-                        (stark/hash-order)
-                        (ecdsa/sign stark-key))]
-      (-> signature))))
-
-
+    (let [meta-data (-> (get-in meta-data-map [:>values ^String id]))]
+      (def order
+        {:positionId  (.positionId ^IStarkSignatureArg arg)
+         :clientId    (.clientId ^IStarkSignatureArg arg)
+         :market      (.symbol ^IStarkSignatureArg arg)
+         :side        (.side ^IStarkSignatureArg arg)
+         :size        (.size ^IStarkSignatureArg arg)
+         :price       (.price ^IStarkSignatureArg arg)
+         :limitFee    (.limitFee ^IStarkSignatureArg arg)
+         :expiration  (instant/read-instant-date (.expiration ^IStarkSignatureArg arg))
+         :type        (.orderType ^IStarkSignatureArg arg)
+         :postOnly    (.postOnly ^IStarkSignatureArg arg)
+         :timeInForce (.timeInForce ^IStarkSignatureArg arg)})
+      (try
+        (let [signature (-> order
+                            (stark/order meta-data)
+                            (stark/hash-order)
+                            (ecdsa/sign stark-key))]
+          (-> signature))
+        (catch Exception e
+          (if (invalid-meta-data meta-data) (throw (Exception. "Asset Meta Data is not initialized properly")))
+          (throw e))))))
 
 
 (comment

@@ -2,6 +2,8 @@ package io.sixtant;
 
 public interface IStarkSignatureArg {
 
+    boolean testnet();
+
     long positionId();
 
     CharSequence clientId();

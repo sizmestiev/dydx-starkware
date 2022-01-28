@@ -242,16 +242,19 @@
        :>asset-id        (as-clj-map (.assetId ^IAssetMetaData java-meta-data))
        :>lots            (as-clj-map (.lots ^IAssetMetaData java-meta-data))}))
 
-(def meta-data-map {})
+(def meta-data-prod)
+(def meta-data-test)
 
 (defrecord StarkSigner [^String id ^String stark-key]
   IStarkSigner
 
-  (^void init [this ^IAssetMetaData assetMetaData]
-    (def meta-data-map (assoc-in meta-data-map [:>values ^String id] (convert-meta-data assetMetaData))))
+  (^void init [this ^IAssetMetaData assetMetaData ^boolean testnet]
+    (if testnet
+      (def meta-data-test (convert-meta-data assetMetaData))
+      (def meta-data-prod (convert-meta-data assetMetaData))))
 
   (^String sign [this ^IStarkSignatureArg arg]
-    (let [meta-data (-> (get-in meta-data-map [:>values ^String id]))]
+    (let [meta-data (-> (if (.testnet ^IStarkSignatureArg arg) meta-data-test meta-data-prod))]
       (def order
         {:positionId  (.positionId ^IStarkSignatureArg arg)
          :clientId    (.clientId ^IStarkSignatureArg arg)
